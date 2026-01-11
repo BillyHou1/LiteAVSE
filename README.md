@@ -47,7 +47,7 @@ All experiments must have:
 
 | Paper | Venue | Year | Usage |
 |-------|-------|------|-------|
-| [SGMSE+](https://arxiv.org/abs/2303.15299) | TASLP | 2023 | Diffusion SE framework |
+| [SGMSE+](https://arxiv.org/abs/2208.05830) | TASLP | 2023 | Diffusion SE framework |
 | [Auto-AVSR](https://arxiv.org/abs/2303.14307) | ICASSP | 2023 | Visual encoder |
 | [RT-LA-VocE](https://arxiv.org/abs/2407.07825) | Interspeech | 2024 | Real-time AVSE reference |
 
@@ -69,10 +69,9 @@ All experiments must have:
 
 ## Acknowledgements
 
-- [SGMSE](https://github.com/sp-uhh/sgmse) by [Welker et al.](https://arxiv.org/abs/2303.15299)
+- [SGMSE](https://github.com/sp-uhh/sgmse) by [Welker et al.](https://arxiv.org/abs/2208.05830)
 - [Auto-AVSR](https://github.com/mpc001/auto_avsr) by [Ma et al.](https://arxiv.org/abs/2303.14307)
 - [COG-MHEAR AVSE Challenge](https://challenge.cogmhear.org/) organizers
-
 ## License
 
 Code will be released under an open-source license (TBD). Upstream components retain their original licenses.
