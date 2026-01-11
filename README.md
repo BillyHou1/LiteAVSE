@@ -57,7 +57,7 @@ All experiments must have:
 |-------|-------|------|
 | [VisualVoice](https://arxiv.org/abs/2101.03149) | CVPR | 2021 |
 | [Looking to Listen](https://arxiv.org/abs/1804.03619) | SIGGRAPH | 2018 |
-| DAVSE | AVSEC | 2024 |
+| [DAVSE](https://www.isca-archive.org/avsec_2024/chen24b_avsec.pdf) | AVSEC | 2024 |
 
 ### Code
 
