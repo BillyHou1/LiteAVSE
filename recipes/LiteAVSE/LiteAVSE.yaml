@@ -1,0 +1,73 @@
+# LiteAVSEMamba Configuration
+# Base config for full model (VCE + FSVG + Custom3D + CausalTFMamba)
+#
+# References:
+#   - SEMamba (Chao et al., SLT 2024) for base STFT and training config
+#   - Mamba (Gu & Dao, COLM 2024) for SSM hyperparameters
+
+# ----- STFT Configuration -----
+# Ref: MP-SENet (Lu et al., 2023) power-compressed mag-phase
+stft_cfg:
+  sampling_rate: 16000
+  n_fft: 400
+  hop_size: 100
+  win_size: 400
+  compress_factor: 0.3
+
+# ----- Model Configuration -----
+model_cfg:
+  # Audio encoder/decoder (from SEMamba)
+  input_channel: 2          # mag + pha
+  hid_feature: 64           # hidden feature dimension
+  num_tfmamba: 4             # number of CausalTFMamba blocks
+
+  # Mamba SSM config (Ref: Mamba, Gu & Dao, 2024)
+  d_state: 16
+  d_conv: 4
+  expand: 4
+  norm_epsilon: 0.00001
+
+  # Visual encoder
+  visual_encoder: "custom3d"  # Options: "custom3d"
+  visual_out_channels: 64     # match hid_feature
+
+  # VCE config
+  vce_input_dim: 512
+  vce_hidden_dims: [256, 64]
+  vce_smooth_kernel: 5
+
+  # FSVG config
+  fsvg_prior: true            # enable speech-band prior
+  fsvg_speech_low: 300        # Hz, lower bound of speech band
+  fsvg_speech_high: 3000      # Hz, upper bound of speech band
+
+# ----- Training Configuration -----
+# Ref: SEMamba (Chao et al., 2024) Section IV
+train_cfg:
+  batch_size: 2               # adjust based on GPU VRAM
+  num_epochs: 100
+  learning_rate: 0.0005       # 5e-4
+  betas: [0.8, 0.99]
+  lr_decay: 0.99              # ExponentialLR gamma
+  max_grad_norm: 1.0          # gradient clipping
+  validation_interval: 500    # validate every N steps
+
+  # Loss weights (6-component)
+  # Ref: MP-SENet for mag/phase/complex, SEMamba for time/consistency, SI-SDR new
+  loss_mag_weight: 0.9
+  loss_phase_weight: 0.3
+  loss_complex_weight: 0.1
+  loss_time_weight: 0.2
+  loss_consistency_weight: 0.1
+  loss_sisdr_weight: 0.2
+
+# ----- Data Configuration -----
+data_cfg:
+  train_json: "data/train.json"
+  valid_json: "data/valid.json"
+  noise_dir: "data/noise"
+  audio_length: 16000         # 1 second @ 16kHz
+  video_fps: 25
+  video_size: 96              # face crop size
+  visual_augmentation: true   # enable visual aug for VCE training
+  num_workers: 4

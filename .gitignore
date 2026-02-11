@@ -1,2 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Experiment outputs
+exp/
+logs/
+runs/
+*.pth
+*.pt
+*.ckpt
+
+# Data (too large for git)
+data/
+datasets/
+*.wav
+*.mp4
+*.avi
+*.flac
+
+# Mamba build artifacts
+mamba-1_2_0_post1/
+mamba_install/
+
+# Pretrained models
+ckpts/
+EnhancedSamples/
+
+# OS
 .DS_Store
-__pycache__
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Misc
+*.log
+*.tmp

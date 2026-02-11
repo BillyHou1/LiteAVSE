@@ -1,211 +1,265 @@
-# SEMamba (Accepted to IEEE SLT 2024)
-This is the official implementation of the SEMamba paper.  
-For more details, please refer to: [An Investigation of Incorporating Mamba for Speech Enhancement](https://arxiv.org/abs/2405.06573)
+# LiteAVSEMamba
+
+**Lightweight Audio-Visual Speech Enhancement with Mamba**
+
+University of Bristol | Feb 2026
+
+**Team:** Billy (Lead), Dominic, Ronny, Fan, Shunjie, Zhenning
+
+> **Branch `SEMamba`** — Development base built on [SEMamba](https://github.com/RoyChao19477/SEMamba) (Chao et al., IEEE SLT 2024). All new module files contain TODO skeletons only. See each file's header for your assigned tasks, design specs, and paper references.
 
 ---
 
-### NeurIPS 2024 competition : URGENT challenge 2024 ( oral presentation )
+## Overview
 
-- A speech enhancement (SE) challenge aiming to build universal, robust, diverse, and generalizable SE models.
-- The challenge involves diverse distortions, including 
-    - **additive noise**, 
-    - **reverberation**, 
-    - **clipping**,
-    - **bandwidth limitations**,  
+LiteAVSEMamba is a lightweight audio-visual speech enhancement system built on top of [SEMamba](https://arxiv.org/abs/2405.06573) [1]. We extend the audio-only Mamba architecture with visual information from face video, using two novel fusion modules: **VCE** (Visual Confidence Estimator) and **FSVG** (Frequency-Selective Visual Gating).
 
-    with **all types of sampling frequencies** supported by a single model.
-- Requires handling a large-scale dataset (~1.5 TB) and includes ranking based on **13 metrics** in classes of 
-    - non-intrusive, 
-    - intrusive, 
-    - downstream-task-independent, 
-    - downstream-task-dependent,
-    - subjective  
+### Core Innovation: Double-Gated Fusion
 
-    SE metrics.
-- Achieved **4th place** among 70 participating teams (>20 teams joined to the final stage).
-- Deliver an oral presentation at the **NeurIPS** 2024 workshop, Vancouver, Canada.
-- **Demo website** **[Live Demo Website](https://roychao19477.github.io/speech-enhancement-demo-2024/)**
+```
+fused = audio_feat + alpha * gate * visual_feat
+```
 
----
+- `alpha` (VCE): per-frame visual reliability score — when visual input is degraded, alpha -> 0, system falls back to audio-only
+- `gate` (FSVG): per-frequency gating weight — speech-relevant frequencies (300Hz-3kHz) receive stronger visual influence
 
-## ✅ (Updated June 3) Online Demo on HuggingFace
+### Design Targets
 
-1.  You can now upload or record audio directly on our Hugging Face demo [https://huggingface.co/spaces/rc19477/Speech_Enhancement_Mamba](https://huggingface.co/spaces/rc19477/Speech_Enhancement_Mamba) for speech enhancement.
-
-2. We now provide another model, `ckpts/vd.pth`, trained on both the VCTK-Demand and DNS-2020 corpora. The model achieves the following performance:
-
-| Dataset           | PESQ | CSIG | CBAK | COVL | STOI |
-|-------------------|------|------|------|------|------|
-| DNS-2020          | 3.66 | 2.88 | 4.33 | 2.67 | 0.98 |
-| DNS-2020 w/PCS    | 3.70 | 2.87 | 3.45 | 2.67 | 0.98 |
-| VCTK-Demand       | 3.56 | 4.73 | 4.00 | 4.25 | 0.96 |
-| VCTK-Demand w/PCS | 3.75 | 4.76 | 3.67 | 4.37 | 0.96 |
+| Property | Value | Source |
+|----------|-------|--------|
+| SEMamba baseline params | ~10.5M | [SEMamba repo](https://github.com/RoyChao19477/SEMamba) |
+| Complexity | O(N) linear | Mamba [2] proven property |
+| Visual Input | 96x96 RGB full-face @ 25fps | Config |
+| Audio Input | 16kHz mono | Config |
+| Streaming | Design goal (time-causal Mamba) | TBD after implementation |
+| Parameter reduction | Design goal (significant reduction from SEMamba) | TBD after implementation |
 
 ---
 
-## ✅ (Updated May 14) Now supports `mamba-ssm 2.2.x`
+## Architecture
 
-If you already installed `mamba-ssm 2.2.x`, you can still run this repo with a few modifications:
-
-### Steps to run:
-```bash
-# Step 1: Copy local override
-cp -R mamba_install/mamba_ssm/ .
-
-# Step 2: Launch training
-sh run.sh
+```
+ noisy_audio [B, 16000]              face_video [B, 3, 25, 96, 96]
+      |                                      |
+      v                                      v
+ +-----------+                    +-------------------------+
+ |   STFT    |  n_fft=400        | LiteVisualEncoder [NEW] |  Custom 3D CNN
+ +-----------+  hop=100          | 4-layer Conv3d          |  Ref: [6]
+      |                           +-------------------------+
+ mag + pha                              |              |
+ [B, 2, T, F]                     visual_raw       visual_feat
+      |                           [B, 512, T]     [B, 64, T, F]
+      v                                |
+ +------------------+                  v
+ |  DenseEncoder    |        +-------------------+
+ +------------------+        | VCE [NEW]         |  Visual Confidence
+      |                       | MLP + causal Conv1d|  Ref: [13][14]
+ [B, 64, T, F//2]            +-------------------+
+ = audio_feat                         |
+      |                          alpha [B, T, 1]
+      |                               |
+      |    +--------------+           |
+      +--->| FSVG [NEW]   |           |
+      |    | Conv2d gate   |           |
+      |    | + freq prior  |           |
+      |    +--------------+           |
+      |          |                    |
+      |     gate [B,1,T,F]           |
+      v          v                    v
+ +--------------------------------------------------+
+ | DOUBLE-GATED FUSION [NEW]                         |
+ |  fused = audio_feat + alpha * gate * visual_feat  |
+ |  Ref: FiLM [13], Gated Multimodal Fusion [14]    |
+ +--------------------------------------------------+
+      |
+ 4x CausalTFMambaBlock [MODIFIED]
+ (Time: unidirectional / Freq: bidirectional)
+      |
+ MagDecoder + PhaseDecoder -> iSTFT -> enhanced_audio
 ```
 
 ---
 
-### 🐳 Docker Support
+## Complete File Map
 
-We provide pre-built Docker environments to simplify setup:
+Legend: `[BASE]` = SEMamba original, `[NEW]` = our addition, `[EXT]` = extended from original
 
-1. **x86 systems**
-   Tested on A100, RTX 4090, and RTX 3090
-   👉 [Visit x86 Docker Repo](https://github.com/RoyChao19477/x86-semamba-docker)
+```
+LiteAVSEMamba/
+│
+├── README.md                                  [NEW]  Project overview + architecture + file map
+├── .gitignore                                 [EXT]  Ignore rules (added exp/, data/, *.pth, etc.)
+├── LICENSE                                    [BASE] MIT license from SEMamba
+├── requirements.txt                           [BASE] Python dependencies (torch, mamba-ssm, pesq, etc.)
+│
+├── models/
+│   ├── generator.py                           [BASE] SEMamba class (audio-only SE model)
+│   │
+│   ├── mamba_block.py                         [BASE] MambaBlock (bidirectional SSM scan)
+│   │                                                 TFMambaBlock (time-bi + freq-bi Mamba)
+│   │
+│   ├── vce.py                                 [NEW]  Visual Confidence Estimator (Billy)
+│   │                                                 (per-frame alpha: "is this frame's video reliable?")
+│   │
+│   ├── fsvg.py                                [NEW]  Freq-Selective Visual Gating (Dominic)
+│   │                                                 (per-frequency gate: "does this freq need visual?")
+│   │
+│   ├── lite_visual_encoder.py                 [NEW]  Lightweight 3D CNN visual encoder (Ronny)
+│   │                                                 (face video [B,3,T,96,96] -> visual features)
+│   │
+│   ├── loss.py                                [BASE] phase_losses, pesq_score (spectral loss + eval metric)
+│   │
+│   ├── codec_module.py                        [BASE] DenseEncoder (audio feat extractor, Conv2d+DenseBlock)
+│   │                                                 MagDecoder (magnitude mask predictor)
+│   │                                                 PhaseDecoder (phase estimator via atan2)
+│   │
+│   ├── discriminator.py                       [BASE] MetricDiscriminator (PESQ-guided adversarial loss,
+│   │                                                 used in SEMamba training only, not in our model)
+│   │
+│   ├── stfts.py                               [BASE] STFT/iSTFT with power compression
+│   │                                                 (audio waveform <-> mag+phase spectrogram)
+│   │
+│   ├── lsigmoid.py                            [BASE] LearnableSigmoid (sigmoid with learnable slope,
+│   │                                                 used in MagDecoder mask output, from MP-SENet)
+│   │
+│   └── pcs400.py                              [BASE] Perceptual Contrast Stretching (per-freq-bin
+│                                                     weighting table, SEMamba preprocessing variant,
+│                                                     not used in our model)
+│
+├── dataloaders/
+│   ├── dataloader_vctk.py                     [BASE] VCTK-DEMAND audio-only dataloader
+│   └── dataloader_av.py                       [NEW]  Audio-Visual dataloader (Fan)
+│                                                     (paired audio+video, on-the-fly noise mixing,
+│                                                     visual augmentation for VCE training)
+│
+├── recipes/
+│   ├── SEMamba_advanced/                       [BASE] SEMamba audio-only configs
+│   │   ├── SEMamba_advanced.yaml                     (main config: STFT, model, training params)
+│   │   └── SEMamba_advanced_pretrainedD.yaml         (config with pretrained discriminator)
+│   ├── SEMamba_advanced_PCS/                   [BASE] SEMamba + PCS preprocessing config
+│   │   └── SEMamba_advanced_PCS.yaml                 (enables use_PCS400, not used by us)
+│   └── LiteAVSE/                              [NEW]  Our AV model configs
+│       └── LiteAVSE.yaml                             (model arch + training + data settings)
+│
+├── train.py                                   [BASE] SEMamba training loop (audio-only, with GAN loss)
+├── train_lite.py                              [NEW]  LiteAVSE training loop (Collaborative)
+│                                                     (AV training with 6-component loss)
+├── inference.py                               [BASE] SEMamba inference script (load ckpt -> enhance audio)
+│
+├── utils/
+│   └── util.py                                [BASE] Config loader, seed init, GPU info, distributed setup
+│
+├── run.sh                                     [BASE] SEMamba training launch script
+├── runPCS.sh                                  [BASE] SEMamba+PCS training launch script
+├── make_dataset.sh                            [BASE] Generate JSON data lists from VCTK-DEMAND
+└── pretrained.sh                              [BASE] Download SEMamba pretrained checkpoints
+```
 
-2. **ARM systems**
-   Tested on NVIDIA GH200
-   👉 [Visit GH200 Docker Repo](https://github.com/RoyChao19477/gh200-semamba-docker)
+### What We Changed (Summary)
 
+| Type | Count | Files |
+|------|-------|-------|
+| **[NEW] files** | 6 | `vce.py`, `fsvg.py`, `lite_visual_encoder.py`, `dataloader_av.py`, `train_lite.py`, `LiteAVSE.yaml` |
+| **[EXT] extended** | 1 | `.gitignore` (added exp/, data/, *.pth, etc.) |
+| **[BASE] unchanged** | 19 | All original SEMamba files |
 
 ---
 
-⚠️  Notice: If you encounter CUDA-related issues while using the Mamba-1 framework, we suggest using the Mamba-2 framework (available in the mamba-2 branch).  
-The Mamba-2 framework is designed to support both Mamba-1 and Mamba-2 model structures.
+## Quick Start
+
+### 1. Environment Setup
 
 ```bash
-git checkout mamba-2
-```
-
-## Requirement
-    * Python >= 3.9
-    * CUDA >= 12.0
-    * PyTorch == 2.2.2
-
-## Model
-
-![SEMamba advanced model](imgs/SEMamba_advanced.jpg)
-
-## Speech Enhancement Results
-VCTK-Demand
-![VCTKDEMAND_Results](imgs/VCTK-Demand.png)
-
-## ASR Word Error Rate
-We have tested the ASR results using OpenAI Whisper on the test set of VoiceBank-DEMAND.
-> The evaluation code will be released in the future.
-
-![VCTKDEMAND WER Results](imgs/vctk_wer.jpg)
-
-## Additional Notes
-
-1. Ensure that both the `nvidia-smi` and `nvcc -V` commands show CUDA version 12.0 or higher to verify proper installation and compatibility.
-
-2. Currently, it supports only GPUs from the RTX series and newer models. Older GPU models, such as GTX 1080 Ti or Tesla V100, may not support the execution due to hardware limitations.
-
----
-
-## Installation
-### (Suggested:) Step 0 - Create a Python environment with Conda
-
-It is highly recommended to create a separate Python environment to manage dependencies and avoid conflicts.
-```bash
-conda create --name mamba python=3.9
-conda activate mamba
-```
-
-### Step 1 - Install PyTorch
-
-Install PyTorch 2.2.2 from the official website. Visit [PyTorch Previous Versions](https://pytorch.org/get-started/previous-versions/) for specific installation commands based on your system configuration (OS, CUDA version, etc.).
-
-### Step 2 - Install Required Packages
-
-After setting up the environment and installing PyTorch, install the required Python packages listed in requirements.txt.
-
-```bash
+git clone -b SEMamba https://github.com/BillyHou1/LiteAVSE.git
+cd LiteAVSE
 pip install -r requirements.txt
+
+# Install Mamba SSM (see mamba_install/ for instructions)
 ```
 
-### Step 3 - Install the Mamba Package
+### 2. Datasets
 
-Navigate to the mamba_install directory and install the package. This step ensures all necessary components are correctly installed.
+**Speech (Audio-Visual):**
+
+| Dataset | Size | Purpose | Access |
+|---------|------|---------|--------|
+| [GRID](https://spandh.dcs.shef.ac.uk/gridcorpus/) | 28h, single-speaker | Prototype / ablation | Public |
+| [LRS2](https://www.robots.ox.ac.uk/~vgg/data/lip_reading/lrs2.html) | 224h, multi-speaker | Full training | Requires application |
+| [LRS3](https://www.robots.ox.ac.uk/~vgg/data/lip_reading/lrs3.html) | 438h, multi-speaker | Full training | **Currently unavailable** (Oxford VGG access suspended) |
+
+**Noise:**
+
+| Dataset | Size | Notes |
+|---------|------|-------|
+| [DEMAND](https://zenodo.org/record/1227121) | 18 types | Limited diversity; sufficient for prototyping |
+| [DNS Challenge](https://github.com/microsoft/DNS-Challenge) | 65,000+ clips | Large-scale; recommended for full training |
+| [MUSAN](https://www.openslr.org/17/) | Music, speech, noise | Complements DEMAND |
+
+> **Note:** DEMAND alone may not provide sufficient noise diversity for robust evaluation. Consider combining with DNS Challenge or MUSAN for full-scale experiments. LRS3 access status should be confirmed with Oxford VGG before planning experiments that depend on it.
+
+Prepare JSON lists per dataset: `data/<dataset>_train.json`, `data/<dataset>_valid.json`
+
+### 3. Training
 
 ```bash
-cd mamba_install
-pip install .
-```
-📌  Note: You might run `pip install numpy==1.26.4` after these to prevent unpredictable issues.  
+# Audio-only baseline (SEMamba — works out of the box)
+python train.py --config recipes/SEMamba_advanced/SEMamba_advanced.yaml
 
-⚠️  Note: Installing from source (provided `mamba_install`) can help prevent package issues and ensure compatibility between different dependencies. It is recommended to follow these steps carefully to avoid potential conflicts.
-
-⚠️  Notice: If you encounter CUDA-related issues while you already have `CUDA>=12.0` and installed `pytorch 2.2.2`, you could try mamba 1.2.0.post1 instead of mamba 1.2.0 as follow:
-```bash
-cd mamba-1_2_0_post1
-pip install .
+# Audio-visual (after implementing TODO modules)
+python train_lite.py --config recipes/LiteAVSE/LiteAVSE.yaml \
+    --exp_folder exp --exp_name LiteAVSE_v1
 ```
 
 ---
 
+## Module Implementation Guide
 
-## Training the Model
-### Step 1: Prepare Dataset JSON
+Each new module file contains TODO comments with:
+- **Purpose** — what the module does
+- **References** — which paper sections to read before implementing
+- **Integration** — how it connects to other modules
 
-Create the dataset JSON file using the script `sh make_dataset.sh`. You may need to modify `make_dataset.sh` and `data/make_dataset_json.py`.
-
-Alternatively, you can directly modify the data paths in `data/train_clean.json`, `data/train_noisy.json`, etc.
-
-### Step 2: Run the following script to train the model.
-
-```bash
-sh run.sh
-```
-
-📌  Note: You can use `tensorboard --logdir exp/path_to_your_exp/logs` to check your training log   
-📌  Note: If you would like to train SEMamba with the `pretrained_pesq_discriminator` weights, modify the `run.sh` to use the configuration: `--config recipes/SEMamba_advanced/SEMamba_advanced_pretrainedD.pth`.
+**Recommended reading order:**
+1. SEMamba paper [1] — understand the base architecture
+2. Mamba paper [2] — understand SSM mechanism
+3. Your assigned module's references (listed in file header)
 
 ---
 
-## Using the Pretrained Model
+## References
 
-Modify the `--input_folder` and `--output_folder` parameters in `pretrained.sh` to point to your desired input and output directories. Then, run the script.
+[1] R. Chao et al., "An Investigation of Incorporating Mamba for Speech Enhancement," IEEE SLT, 2024.
 
-```bash
-sh pretrained.sh
-```
+[2] A. Gu and T. Dao, "Mamba: Linear-Time Sequence Modeling with Selective State Spaces," COLM, 2024.
+
+[3] T. A. Ma et al., "Real-Time Audio-Visual Speech Enhancement Using Pre-trained Visual Representations," Interspeech, 2025.
+
+[4] Y.-X. Lu et al., "MP-SENet: A Speech Enhancement Model with Parallel Denoising of Magnitude and Phase Spectra," Interspeech, 2023.
+
+[5] K. Li et al., "An Audio-Visual Speech Separation Model Inspired by Cortico-Thalamo-Cortical Circuits," IEEE TPAMI, 2024.
+
+[6] P. Ma et al., "Auto-AVSR: Audio-Visual Speech Recognition with Automatic Labels," IEEE ICASSP, 2023.
+
+[7] A. Howard et al., "Searching for MobileNetV3," IEEE/CVF ICCV, 2019.
+
+[8] G. Huang et al., "Densely Connected Convolutional Networks," IEEE CVPR, 2017.
+
+[9] J. Le Roux et al., "SDR -- Half-baked or Well Done?" IEEE ICASSP, 2019.
+
+[10] B. Shi et al., "Learning Audio-Visual Speech Representation by Masked Multimodal Cluster Prediction," ICLR, 2022.
+
+[11] C. H. Taal et al., "An Algorithm for Intelligibility Prediction of Time-Frequency Weighted Noisy Speech," IEEE TASLP, 2011.
+
+[12] D. S. Park et al., "SpecAugment: A Simple Data Augmentation Method for Automatic Speech Recognition," Interspeech, 2019.
+
+[13] E. Perez et al., "FiLM: Visual Reasoning with a General Conditioning Layer," AAAI, 2018.
+
+[14] J. Arevalo et al., "Gated Multimodal Units for Information Fusion," ICLR Workshop, 2017.
+
+[15] A. W. Rix et al., "Perceptual Evaluation of Speech Quality (PESQ)," IEEE ICASSP, 2001.
 
 ---
 
-## Implementing the PCS Method in SEMamba
-> (Updated May 14, 2025) Fix issue: inference.py not parsing bool values correctly
-There are two methods to implement the PCS (Perceptual Contrast Stretching) method in SEMamba:
-1. Use PCS as Training Target:
-- Run the `sh runPCS.sh` with the yaml configuration `use_PCS400=True`.
-- Use the pretrained model `sh pretrained.sh` without post-processing `--post_processing_PCS False`.
+## License
 
-2. Use PCS as Post-Processing:
-- Run the `sh run.sh` with the yaml configuration `use_PCS400=False`.
-- Use the pretrained model `sh pretrained.sh` with post-processing `--post_processing_PCS True`.
-
----
-
-## Evaluation
-The evaluation metrics is calculated via: [CMGAN](https://github.com/ruizhecao96/CMGAN/blob/main/src/tools/compute_metrics.py)  
-
-## Perceptual Contrast Stretching
-The implementation of Perceptual Contrast Stretching (PCS) as discussed in our paper can be found at [PCS400](https://github.com/RoyChao19477/PCS/tree/main/PCS400).
-
-## References and Acknowledgements
-We would like to express our gratitude to the authors of [MP-SENet](https://github.com/yxlu-0102/MP-SENet/tree/main), [CMGAN](https://github.com/ruizhecao96/CMGAN), [HiFi-GAN](https://github.com/jik876/hifi-gan/blob/master/train.py), and [NSPP](https://github.com/YangAi520/NSPP).
-
-## Citation:
-If you find the paper useful in your research, please cite:  
-```
-@article{chao2024investigation,
-  title={An Investigation of Incorporating Mamba for Speech Enhancement},
-  author={Chao, Rong and Cheng, Wen-Huang and La Quatra, Moreno and Siniscalchi, Sabato Marco and Yang, Chao-Han Huck and Fu, Szu-Wei and Tsao, Yu},
-  journal={arXiv preprint arXiv:2405.06573},
-  year={2024}
-}
-```
+Based on [SEMamba](https://github.com/RoyChao19477/SEMamba) by R. Chao et al.
