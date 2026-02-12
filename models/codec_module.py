@@ -1,5 +1,20 @@
-# audio encoder/decoder from MP-SENet (DenseEncoder, MagDecoder, PhaseDecoder)
+# Dominic + Zhenning
+# DenseEncoder, MagDecoder, PhaseDecoder from MP-SENet are already done below.
 # Reference: https://github.com/yxlu-0102/MP-SENet/blob/main/models/generator.py
+#
+# TODO add Lite variants at the bottom
+# Replace standard Conv2d in DenseBlock with depthwise separable conv to cut
+# params, same idea as MobileNet. Structure stays the same, just lighter convs.
+#
+# DepthwiseSeparableConv2d, depthwise conv with groups=in_ch then pointwise 1x1,
+# add InstanceNorm2d + PReLU after pointwise same as DenseBlock does.
+# LiteDenseBlock, same as DenseBlock but uses DepthwiseSeparableConv2d instead
+# of nn.Conv2d. Concat skip pattern, depth=4, dilation=2^i all unchanged.
+# LiteDenseEncoder, same as DenseEncoder with LiteDenseBlock, keep the two
+# wrapper convs dense_conv_1 and dense_conv_2 as regular Conv2d.
+# LiteMagDecoder and LitePhaseDecoder, same deal just swap the DenseBlock.
+#
+# Used when cfg['lite_cfg']['use_lite_dense'] is True, otherwise original classes.
 
 import torch
 import torch.nn as nn

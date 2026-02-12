@@ -1,16 +1,18 @@
 # Billy
-# TODO:
-# add LiteAVSEMamba class: double-gated AV fusion (alpha * gate * visual_feat)
-# VisualEncoder + VCE + FSVG + CausalTFMamba + Decoders
+# SEMamba below is the original audio-only model, already done.
 #
-# module interfaces:
-#   DenseEncoder:   noisy [B,2,T,F] -> audio_feat [B,64,T,F_enc]
-#   VisualEncoder:  video [B,1,T,96,96] -> visual_feat [B,64,T]
-#   VCE:            visual_feat [B,64,T] -> alpha [B,1,T]
-#   FSVG:          audio_feat + visual_feat -> gate [B,1,T,F_enc]
-#   CausalTFMamba:  [B,64,T,F_enc] -> [B,64,T,F_enc]
-#   MagDecoder:     [B,64,T,F_enc] -> mag_mask [B,1,T,F]
-#   PhaseDecoder:   [B,64,T,F_enc] -> phase [B,1,T,F]
+# TODO add LiteAVSEMamba class below SEMamba
+# This is our version that adds visual info. Unlike just concatenating video to
+# the input, we fuse in feature space AFTER DenseEncoder so input_channel stays
+# 2 (mag + pha) not 3. Fusion is double gated:
+# fused = audio_feat + alpha * gate * visual_feat
+# alpha from VCE is per-frame confidence, basically is this video frame reliable,
+# gate from FSVG is per-frequency mask, does this freq band need visual help.
+# Uses CausalTFMambaBlock not TFMambaBlock cause we need causal for real-time.
+# When video=None just skip the visual branch entirely and run audio-only.
+# visual_proj is Conv1d(512, hid_feature, 1) + ReLU to match dimensions.
+# Remember to F.interpolate visual features and alpha to match encoded time dim
+# cause video is 25fps but audio encoding runs at a different rate.
 
 import torch
 import torch.nn as nn

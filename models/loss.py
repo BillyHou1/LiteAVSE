@@ -1,8 +1,21 @@
 # Ronny + Shunjie
-# TODO:
-# 1. si_sdr_loss(ref, est): negative SI-SDR for training
-# 2. si_sdr_score(utts_r, utts_g): mean SI-SDR in dB for eval
-# 3. stoi_score(utts_r, utts_g, cfg): mean STOI [0,1] for eval
+# phase_losses and pesq_score are already done, add 3 functions at the end
+#
+# Ronny:
+# si_sdr_loss(ref, est), training loss, returns negative SI-SDR so the
+# optimizer minimizes it. Both inputs are [B, T]. Zero-mean both signals first,
+# that is what makes it scale-invariant. Then projection: proj = <est,ref>/
+# <ref,ref> * ref, noise = est - proj, SI-SDR = 10*log10(||proj||^2/||noise||^2).
+# Use eps=1e-8 in the denominator or you get log(0). Return -mean(SI-SDR).
+#
+# si_sdr_score(utts_r, utts_g), same math but for evaluation, no gradients
+# needed. Takes lists of tensors, squeeze + cpu + numpy + float64, return mean
+# SI-SDR in dB as a float. Same pattern as pesq_score above.
+#
+# Shunjie:
+# stoi_score(utts_r, utts_g, cfg), eval metric using pystoi, same structure
+# as pesq_score. Wrap pystoi.stoi() with joblib Parallel n_jobs=30, catch
+# exceptions and return -1 for bad ones, return the mean.
 
 # Reference: https://github.com/yxlu-0102/MP-SENet/blob/main/models/generator.py
 
