@@ -8,20 +8,12 @@
 import os
 import json
 import argparse
-
+from utils import save_json
 
 def get_speaker(rel, parts):
-    # support: grid_root/s1/audio/ or grid_root/audio/s1/
-    if "audio" in parts:
-        i = parts.index("audio")
-        return parts[i - 1] if i > 0 else (parts[i + 1] if i + 1 < len(parts) else None)
-    if "video" in parts:
-        i = parts.index("video")
-        return parts[i - 1] if i > 0 else (parts[i + 1] if i + 1 < len(parts) else None)
-    if len(parts) >= 2 and parts[1] in ("audio", "video"):
-        return parts[0]
+    if len(parts) >= 2 and parts[0] in ("audio", "video"):
+        return parts[1]
     return None
-
 
 def collect_pairs(grid_root):
     grid_root = os.path.abspath(grid_root)
@@ -71,15 +63,6 @@ def split_by_speaker(by_speaker, train_spk, valid_spk, test_spk):
         elif spk in test_spk:
             test_list.extend(pairs)
     return train_list, valid_list, test_list
-
-
-def save_json(data, path):
-    d = os.path.dirname(os.path.abspath(path))
-    if d:
-        os.makedirs(d, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
 
 def main():
     parser = argparse.ArgumentParser(description="GRID json lists")

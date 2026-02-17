@@ -7,10 +7,9 @@
 import os
 import json
 import argparse
-
+from utils import save_json
 
 def read_split_file(txt_path, root):
-    # each line: relative path, maybe no .mp4 suffix
     root = os.path.abspath(root)
     if not os.path.isfile(txt_path):
         return []
@@ -22,20 +21,8 @@ def read_split_file(txt_path, root):
                 continue
             rel = line.replace("\\", "/").lstrip("/")
             full = os.path.normpath(os.path.join(root, rel))
-            ext = os.path.splitext(full)[1].lower()
-            if ext not in (".mp4", ".mpg", ".avi"):
-                full = full + ".mp4"
             out.append({"video": os.path.abspath(full)})
     return out
-
-
-def save_json(data, path):
-    dirpath = os.path.dirname(os.path.abspath(path))
-    if dirpath:
-        os.makedirs(dirpath, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
 
 def main():
     parser = argparse.ArgumentParser(description="LRS2 json lists")
@@ -51,7 +38,6 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
     out_dir = os.path.abspath(args.output_dir)
 
-    # train.txt -> lrs_train.json, val.txt -> lrs_valid.json, test.txt -> lrs_test.json
     splits = [
         ("train", "train.txt", "lrs_train.json"),
         ("valid", "val.txt", "lrs_valid.json"),
@@ -60,20 +46,13 @@ def main():
     total = 0
     for name, txt_name, json_name in splits:
         txt_path = os.path.join(root, txt_name)
-        if not os.path.isfile(txt_path):
-            txt_path = os.path.join(root, "meta", txt_name)
-        if not os.path.isfile(txt_path):
-            print("warning: no", txt_name, "in", root)
-            lst = []
-        else:
-            lst = read_split_file(txt_path, root)
+        lst = read_split_file(txt_path, root)
         total += len(lst)
         out_path = os.path.join(out_dir, json_name)
         save_json(lst, out_path)
-        print(name, len(lst), "->", out_path)
 
     if total == 0:
-        print("no entries. put train.txt/val.txt/test.txt in lrs2_root (or meta/), one path per line.")
+        print("no entries.")
 
 
 if __name__ == "__main__":
