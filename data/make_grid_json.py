@@ -12,6 +12,8 @@ import argparse
 
 
 def collect_pairs(grid_root):
+
+    
     """
     Walk the GRID corpus directory and pair audio (.wav) with video (.mpg)
     by utterance ID for each speaker.
