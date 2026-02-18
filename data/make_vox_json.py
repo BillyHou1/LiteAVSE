@@ -6,11 +6,11 @@
 import os
 import random
 import argparse
-from utils import save_json
+from utils import save_json, extract_audio_from_video
 
 
 
-def collect_clips(vox2_root, subset):
+def collect_clips(vox2_root, subset, extract_audio=False):
     # subset = 'dev' or 'test'. walk vox2_root/dev or vox2_root/test, get all .mp4
     root = os.path.abspath(vox2_root)
     sub_dir = os.path.join(root, subset)
@@ -21,7 +21,11 @@ def collect_clips(vox2_root, subset):
         for f in filenames:
             if os.path.splitext(f)[1].lower() == ".mp4":
                 full = os.path.abspath(os.path.join(dirpath, f))
-                out.append({"video": full})
+                if extract_audio:
+                    audio_path = extract_audio_from_video(full)
+                    out.append({"audio": os.path.abspath(audio_path), "video": os.path.abspath(full)})
+                else:
+                    out.append({"video": os.path.abspath(full)})
     return out
 
 
@@ -42,6 +46,7 @@ def main():
     parser.add_argument("--output_dir", default="data", help="where to write json")
     parser.add_argument("--val_ratio", type=float, default=0.03, help="fraction of dev for valid")
     parser.add_argument("--seed", type=int, default=1234, help="random seed for split")
+    parser.add_argument("--extract_audio", type=bool, default=False, help="extract audio from video")
     args = parser.parse_args()
 
     root = os.path.abspath(args.vox2_root)
@@ -49,8 +54,8 @@ def main():
         print("Error: not a dir:", root)
         return
 
-    dev_list = collect_clips(root, "dev")
-    test_list = collect_clips(root, "test")
+    dev_list = collect_clips(root, "dev", args.extract_audio)
+    test_list = collect_clips(root, "test", args.extract_audio)
     train_list, valid_list = split_dev(dev_list, args.val_ratio, args.seed)
 
     out_dir = os.path.abspath(args.output_dir)
