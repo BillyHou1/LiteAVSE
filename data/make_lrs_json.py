@@ -5,7 +5,6 @@
 # format: [{"video": "abs_path"}, ...]
 
 import os
-import json
 import argparse
 from utils import save_json
 

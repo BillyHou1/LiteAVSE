@@ -4,9 +4,10 @@
 # output: vox_train.json, vox_valid.json, vox_test.json
 
 import os
-import json
 import random
 import argparse
+from utils import save_json
+
 
 
 def collect_clips(vox2_root, subset):
@@ -18,7 +19,7 @@ def collect_clips(vox2_root, subset):
     out = []
     for dirpath, _, filenames in os.walk(sub_dir):
         for f in filenames:
-            if os.path.splitext(f)[1].lower() in (".mp4", ".mpg", ".avi"):
+            if os.path.splitext(f)[1].lower() == ".mp4":
                 full = os.path.abspath(os.path.join(dirpath, f))
                 out.append({"video": full})
     return out
@@ -34,15 +35,6 @@ def split_dev(dev_list, val_ratio=0.03, seed=1234):
     valid_list = lst[:n_val]
     train_list = lst[n_val:]
     return train_list, valid_list
-
-
-def save_json(data, path):
-    d = os.path.dirname(os.path.abspath(path))
-    if d:
-        os.makedirs(d, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
 
 def main():
     parser = argparse.ArgumentParser(description="VoxCeleb2 json lists")
