@@ -3,10 +3,10 @@
 # LRS2 has official split files (train.txt, val.txt, test.txt),
 # use those instead of splitting yourself.
 # Each entry is a .mp4 with both audio and video inside.
-# The dataloader extracts audio from the mp4 at load time.
+# This script also extracts audio from each .mp4 using ffmpeg (once, at preprocessing time)
+# and saves it as a .wav alongside the .mp4. The dataloader then reads the .wav directly.
 # Output: data/lrs_train.json, data/lrs_valid.json, data/lrs_test.json
-# Format: [{"video": "/abs/path/to/utterance.mp4"}, ...]
-# No separate audio key.
+# Format: [{"audio": "/abs/path/to/utterance.wav", "video": "/abs/path/to/utterance.mp4"}, ...]
 
 import os
 import json
