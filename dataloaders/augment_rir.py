@@ -45,7 +45,7 @@ class RIRAugmentor:
             rir_path = rir
             rir_data, sr = sf.read(rir_path)
             if sr != target_sr:
-                rir_data = librosa.resample(rir_data, sr, target_sr)
+                rir_data = librosa.resample(rir_data, orig_sr=sr, target_sr=target_sr)
             self.rirs.append(rir_data)
         self.prob = prob
         self.target_sr = target_sr
