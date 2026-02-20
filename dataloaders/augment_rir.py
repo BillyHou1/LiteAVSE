@@ -24,11 +24,15 @@ import scipy
 import numpy as np
 
 def apply_rir(audio, rir):
+    if rir.ndim > 1:
+        rir = rir[:, 0] if rir.shape[1] >= 1 else rir.ravel()
+    rir = np.asarray(rir, dtype=np.float64).ravel()
     rst = scipy.signal.fftconvolve(audio, rir, mode='full')[:len(audio)]
     audio_energy = np.sqrt(np.sum(audio**2))
     rst_energy = np.sqrt(np.sum(rst**2))
+    if rst_energy <= 0:
+        return audio
     rst = rst * (audio_energy / rst_energy)
-    # 对于混响过后的音频保持能量一致，不改变其响度
     return rst
 
 class RIRAugmentor:
@@ -38,7 +42,7 @@ class RIRAugmentor:
             self.rir_list = json.load(f)
         self.rirs = []
         for rir in self.rir_list:
-            rir_path = rir['rir']
+            rir_path = rir
             rir_data, sr = sf.read(rir_path)
             if sr != target_sr:
                 rir_data = librosa.resample(rir_data, sr, target_sr)

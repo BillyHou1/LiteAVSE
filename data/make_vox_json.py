@@ -46,7 +46,7 @@ def main():
     parser.add_argument("--output_dir", default="data", help="where to write json")
     parser.add_argument("--val_ratio", type=float, default=0.03, help="fraction of dev for valid")
     parser.add_argument("--seed", type=int, default=1234, help="random seed for split")
-    parser.add_argument("--extract_audio", type=bool, default=False, help="extract audio from video")
+    parser.add_argument("--extract_audio", action="store_true", help="extract audio from video")
     args = parser.parse_args()
 
     root = os.path.abspath(args.vox2_root)

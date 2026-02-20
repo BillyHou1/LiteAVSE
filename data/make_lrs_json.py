@@ -14,13 +14,12 @@ def read_split_file(txt_path, root, extract_audio=False):
     if not os.path.isfile(txt_path):
         return []
     out = []
-    with open(txt_path, "r", encoding="utf-8-sig", errors="ignore") as f:
+    with open(txt_path, "r") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
-            rel = line.replace("\\", "/").lstrip("/")
-            full = os.path.normpath(os.path.join(root, rel))
+            full = os.path.normpath(os.path.join(root, line))
             if extract_audio:
                 audio_path = extract_audio_from_video(full)
                 out.append({"audio": os.path.abspath(audio_path), "video": os.path.abspath(full)})
@@ -32,7 +31,7 @@ def main():
     parser = argparse.ArgumentParser(description="LRS2 json lists")
     parser.add_argument("--lrs2_root", required=True, help="LRS2 root dir")
     parser.add_argument("--output_dir", default="data", help="where to write json")
-    parser.add_argument("--extract_audio", type=bool, default=False, help="extract audio from video")
+    parser.add_argument("--extract_audio", action="store_true", help="extract audio from video")
     args = parser.parse_args()
 
     root = os.path.abspath(args.lrs2_root)

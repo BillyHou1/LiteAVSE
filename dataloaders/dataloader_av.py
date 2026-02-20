@@ -30,6 +30,11 @@ import torch
 import torch.nn.functional as F
 from models.stfts import mag_phase_stft
 
+def load_video_frames(video_path, start_sec, duration_sec, face_size=96, fps=25):
+    """Placeholder: video 部分不在当前工作范围，仅保证 evaluation 脚本可导入。"""
+    raise NotImplementedError("load_video_frames 未实现（video 非本模块范围）")
+
+
 def load_json_file(path):
     """
     load_json_file(path), just a json.load wrapper, returns the list
@@ -42,12 +47,12 @@ def mix_audio(clean, noise, snr_db):
     if noise shorter than clean loop it, if longer random crop. Scale factor:
     scale = sqrt(clean_power / (noise_power * 10^(snr_db/10))), return clean + scale * noise
     """
+    if len(clean) == 0:
+        return np.array([], dtype=clean.dtype)
     if len(noise) < len(clean):
         noise = np.tile(noise, len(clean) // len(noise) + 1)
-        #循环补齐 loop的作用是确保noise的长度至少与clean的长度相同
-    #随机裁剪 random crop的作用是确保noise的长度与clean的长度相同
     start = random.randint(0, len(noise) - len(clean))
-    noise = noise[start:start+len(clean)]
+    noise = noise[start:start + len(clean)]
     scale = np.sqrt(np.sum(clean**2) / (np.sum(noise**2) * 10**(snr_db/10)))
     #scale的作用是确保clean和noise的能量比例符合snr_db
     return clean + scale * noise
@@ -107,10 +112,8 @@ class AVDataset:
         video_path = sample['video']
         clean_audio, sr = sf.read(audio_path)
         #if stereo take ch0, convert to tensor.
-        if clean_audio.shape[1] > 1:
-        #如果是立体声我们只读第一个channel，然后打包成一个Tensor    
+        if clean_audio.ndim> 1:   
             clean_audio = clean_audio[:, 0]
-        clean_audio = torch.FloatTensor(clean_audio)
         #if split=True random crop to segment_size, if shorter pad zeros.
         segment_size = self.cfg['segment_size']
         audio_start = 0 #默认从0开始
@@ -121,7 +124,7 @@ class AVDataset:
                 audio_start = random.randint(0, max_audio_start)
                 clean_audio = clean_audio[audio_start:audio_start+segment_size]
             else:
-                clean_audio = F.pad(clean_audio, (0, segment_size - clean_len), 'constant')
+                clean_audio = np.pad(clean_audio, (0, segment_size - clean_len), 'constant')
         #figure out start_sec and duration_sec for the matching video crop.
             video_sec_start = audio_start / sr
             video_sec_duration = segment_size / sr 
@@ -144,9 +147,15 @@ class AVDataset:
         norm_factor = np.sqrt(len(noisy_audio) / np.sum(noisy_audio**2))
         clean_audio = clean_audio * norm_factor
         noisy_audio = noisy_audio * norm_factor
+        # 在这里打包成TENSOR
+        clean_audio = torch.FloatTensor(clean_audio) 
+        noisy_audio = torch.FloatTensor(noisy_audio)
         # STFT both, return clean_audio, clean_mag, clean_pha, clean_com, noisy_mag, noisy_pha, video_frames.
         clean_mag, clean_pha, clean_com = mag_phase_stft(clean_audio, self.n_fft, self.hop_size, self.win_size, self.compress_factor)
         noisy_mag, noisy_pha, noisy_com = mag_phase_stft(noisy_audio, self.n_fft, self.hop_size, self.win_size, self.compress_factor)
         # TODO: video_frames from load_video_frames(video_path, ...) when video loading is implemented
         video_frames = None
         return (clean_audio, clean_mag, clean_pha, clean_com, noisy_mag, noisy_pha, video_frames)
+    
+    def __len__(self):
+        return len(self.data_json)

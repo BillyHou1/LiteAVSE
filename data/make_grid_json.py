@@ -9,7 +9,7 @@ import os
 import argparse
 from utils import save_json
 
-def get_speaker(rel, parts):
+def get_speaker(parts):
     if len(parts) >= 2 and parts[0] in ("audio", "video"):
         return parts[1]
     return None
@@ -24,7 +24,7 @@ def collect_pairs(grid_root):
     for dirpath, _, filenames in os.walk(grid_root):
         rel = os.path.relpath(dirpath, grid_root)
         parts = rel.split(os.sep)
-        spk = get_speaker(rel, parts)
+        spk = get_speaker(parts)
         if spk is None or spk in ("audio", "video"):
             continue
         for f in filenames:
